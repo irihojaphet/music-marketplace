@@ -20,3 +20,7 @@ frontend/.env
 # Misc
 *.log
 coverage/
+# Python compiled files (explicit for nested packages)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
