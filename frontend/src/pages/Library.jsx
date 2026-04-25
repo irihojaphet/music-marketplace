@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Library as LibraryIcon, Music } from 'lucide-react'
 import { getLibrary } from '../api/library.js'
 import { createRating, updateRating } from '../api/ratings.js'
+import { useToast } from '../app/ToastContext.jsx'
 import { PageSpinner } from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
@@ -9,6 +10,7 @@ import StarRating, { RatingDisplay } from '../components/StarRating.jsx'
 
 export default function Library() {
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const { data: library, isLoading, isError, error } = useQuery({
     queryKey: ['library'],
@@ -21,7 +23,9 @@ export default function Library() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['library'] })
       queryClient.invalidateQueries({ queryKey: ['albums'] })
+      toast('Rating saved!')
     },
+    onError: () => toast('Failed to save rating', 'error'),
   })
 
   const handleRate = (albumId, score, hasExisting) => {

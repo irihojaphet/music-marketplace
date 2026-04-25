@@ -15,6 +15,14 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function UserOnlyRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.is_admin) return <Navigate to="/" replace />
+  return children
+}
+
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
@@ -33,9 +41,9 @@ export default function App() {
         <Route
           path="/library"
           element={
-            <ProtectedRoute>
+            <UserOnlyRoute>
               <Library />
-            </ProtectedRoute>
+            </UserOnlyRoute>
           }
         />
         <Route

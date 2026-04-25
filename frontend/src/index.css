@@ -4,3 +4,20 @@
   --color-brand: oklch(0.55 0.22 285);
   --color-brand-hover: oklch(0.48 0.22 285);
 }
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .toast-enter {
+    animation: toast-slide-in 0.2s ease-out;
+  }
+}

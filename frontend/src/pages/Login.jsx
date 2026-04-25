@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Music } from 'lucide-react'
+import { Music, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 import ErrorMessage from '../components/ErrorMessage.jsx'
 import Spinner from '../components/Spinner.jsx'
@@ -14,6 +14,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   if (user) {
     navigate(from, { replace: true })
@@ -34,6 +35,9 @@ export default function Login() {
     }
   }
 
+  const inputClass =
+    'w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent'
+
   return (
     <div className="max-w-md mx-auto mt-8">
       <div className="bg-white rounded-2xl border border-zinc-200 p-8 shadow-sm">
@@ -46,26 +50,43 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
             <input
               type="email"
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className={inputClass}
               placeholder="you@example.com"
+              autoComplete="email"
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Password <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className={`${inputClass} pr-10`}
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -78,27 +99,12 @@ export default function Login() {
         </form>
 
         <p className="text-sm text-zinc-500 text-center mt-6">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link to="/register" className="text-violet-600 hover:underline font-medium">
             Register
           </Link>
         </p>
 
-        <div className="mt-6 pt-4 border-t border-zinc-100">
-          <p className="text-xs text-zinc-400 text-center mb-2">Demo credentials</p>
-          <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500">
-            <div className="bg-zinc-50 rounded p-2">
-              <p className="font-medium text-zinc-700">User</p>
-              <p>alice@example.com</p>
-              <p>password123</p>
-            </div>
-            <div className="bg-zinc-50 rounded p-2">
-              <p className="font-medium text-zinc-700">Admin</p>
-              <p>admin@musicmarket.com</p>
-              <p>admin123</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )

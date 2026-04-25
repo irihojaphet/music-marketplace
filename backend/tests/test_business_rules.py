@@ -29,6 +29,11 @@ class TestPurchaseRules:
             purchase_album(db, regular_user, 99999)
         assert exc_info.value.status_code == 404
 
+    def test_admin_cannot_purchase_album(self, db: Session, admin_user: User, album: Album):
+        with pytest.raises(HTTPException) as exc_info:
+            purchase_album(db, admin_user, album.id)
+        assert exc_info.value.status_code == 403
+
     def test_library_returns_purchased_albums(self, db: Session, regular_user: User, album: Album):
         purchase_album(db, regular_user, album.id)
         library = get_user_library(db, regular_user)

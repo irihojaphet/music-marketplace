@@ -62,14 +62,6 @@ npm run dev
 
 App: http://localhost:5173
 
-## Demo Credentials
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@musicmarket.com | admin123 |
-| User | alice@example.com | password123 |
-| User | bob@example.com | password123 |
-
 ## Features
 
 **Guests**

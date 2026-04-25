@@ -7,6 +7,9 @@ from app.schemas.purchase import LibraryItemOut, LibraryAlbumOut, PurchaseOut
 
 
 def purchase_album(db: Session, user: User, album_id: int) -> PurchaseOut:
+    if user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins cannot purchase albums")
+
     album = db.get(Album, album_id)
     if not album:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Album not found")

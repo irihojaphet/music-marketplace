@@ -25,7 +25,7 @@ export default function Navbar() {
             </Link>
             <div className="hidden sm:flex items-center gap-1">
               <NavLink to="/" active={isActive('/')}>Browse</NavLink>
-              {user && (
+              {user && !user.is_admin && (
                 <NavLink to="/library" active={isActive('/library')}>
                   <Library className="h-4 w-4 mr-1 inline" />
                   Library

@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Music, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Music, ShoppingCart, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getAlbums } from '../api/albums.js'
 import { getLibrary } from '../api/library.js'
 import { purchaseAlbum } from '../api/purchases.js'
 import { useAuth } from '../hooks/useAuth.js'
+import { useToast } from '../app/ToastContext.jsx'
 import { PageSpinner } from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 import ErrorMessage from '../components/ErrorMessage.jsx'
@@ -16,10 +17,13 @@ const PAGE_SIZE = 12
 export default function Marketplace() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
+  const isAdmin = !!user?.is_admin
+
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0)
-  const [purchaseError, setPurchaseError] = useState(null)
+  const [confirmTarget, setConfirmTarget] = useState(null) // album pending confirmation
 
   const handleSearch = (val) => {
     setSearch(val)
@@ -38,7 +42,7 @@ export default function Marketplace() {
   const { data: library } = useQuery({
     queryKey: ['library'],
     queryFn: getLibrary,
-    enabled: !!user,
+    enabled: !!user && !isAdmin,
   })
 
   const ownedIds = useMemo(
@@ -50,9 +54,13 @@ export default function Marketplace() {
     mutationFn: purchaseAlbum,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['library'] })
-      setPurchaseError(null)
+      setConfirmTarget(null)
+      toast('Album added to your library!')
     },
-    onError: (err) => setPurchaseError(err),
+    onError: (err) => {
+      setConfirmTarget(null)
+      toast(err?.response?.data?.detail || 'Purchase failed. Please try again.', 'error')
+    },
   })
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0
@@ -61,7 +69,11 @@ export default function Marketplace() {
     <div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-zinc-900 mb-1">Music Marketplace</h1>
-        <p className="text-zinc-500">Discover and purchase albums from your favourite artists.</p>
+        <p className="text-zinc-500">
+          {isAdmin
+            ? 'Browse the full catalog. Manage artists and albums from the admin panel.'
+            : 'Discover and purchase albums from your favourite artists.'}
+        </p>
       </div>
 
       <div className="relative mb-6 max-w-md">
@@ -74,10 +86,6 @@ export default function Marketplace() {
           className="w-full pl-10 pr-4 py-2.5 border border-zinc-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white"
         />
       </div>
-
-      {purchaseError && (
-        <ErrorMessage error={purchaseError} className="mb-4 max-w-md" />
-      )}
 
       {isLoading ? (
         <PageSpinner />
@@ -98,8 +106,8 @@ export default function Marketplace() {
                 album={album}
                 isOwned={ownedIds.has(album.id)}
                 isLoggedIn={!!user}
-                isPurchasing={purchase.isPending && purchase.variables === album.id}
-                onPurchase={() => purchase.mutate(album.id)}
+                isAdmin={isAdmin}
+                onRequestPurchase={() => setConfirmTarget(album)}
               />
             ))}
           </div>
@@ -131,11 +139,20 @@ export default function Marketplace() {
           </p>
         </>
       )}
+
+      {confirmTarget && (
+        <PurchaseConfirmModal
+          album={confirmTarget}
+          isPurchasing={purchase.isPending}
+          onConfirm={() => purchase.mutate(confirmTarget.id)}
+          onClose={() => setConfirmTarget(null)}
+        />
+      )}
     </div>
   )
 }
 
-function AlbumCard({ album, isOwned, isLoggedIn, isPurchasing, onPurchase }) {
+function AlbumCard({ album, isOwned, isLoggedIn, isAdmin, onRequestPurchase }) {
   const colors = [
     'from-violet-500 to-purple-700',
     'from-blue-500 to-indigo-700',
@@ -165,27 +182,91 @@ function AlbumCard({ album, isOwned, isLoggedIn, isPurchasing, onPurchase }) {
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-100">
           <span className="text-base font-bold text-violet-700">${Number(album.price).toFixed(2)}</span>
 
-          {isOwned ? (
-            <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-medium">
-              ✓ Owned
-            </span>
-          ) : isLoggedIn ? (
-            <button
-              onClick={onPurchase}
-              disabled={isPurchasing}
-              className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              {isPurchasing ? 'Buying…' : 'Buy'}
-            </button>
-          ) : (
-            <Link
-              to="/login"
-              className="text-xs text-violet-600 hover:underline font-medium"
-            >
-              Sign in to buy
-            </Link>
+          {!isAdmin && (
+            isOwned ? (
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-medium">
+                ✓ Owned
+              </span>
+            ) : isLoggedIn ? (
+              <button
+                onClick={onRequestPurchase}
+                className="flex items-center gap-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                Buy
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="text-xs text-violet-600 hover:underline font-medium"
+              >
+                Sign in to buy
+              </Link>
+            )
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const CARD_COLORS = [
+  'from-violet-500 to-purple-700',
+  'from-blue-500 to-indigo-700',
+  'from-rose-500 to-pink-700',
+  'from-emerald-500 to-teal-700',
+  'from-amber-500 to-orange-700',
+  'from-cyan-500 to-sky-700',
+]
+
+function PurchaseConfirmModal({ album, isPurchasing, onConfirm, onClose }) {
+  const colorIdx = album.id % CARD_COLORS.length
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+        <div className={`bg-gradient-to-br ${CARD_COLORS[colorIdx]} h-28 flex items-center justify-center relative`}>
+          <Music className="h-12 w-12 text-white/50" />
+          <button
+            onClick={onClose}
+            disabled={isPurchasing}
+            className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors disabled:opacity-40"
+            aria-label="Cancel"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-zinc-900 mb-0.5">{album.name}</h2>
+          <p className="text-sm text-zinc-500 mb-4">{album.artist_name}</p>
+
+          <div className="flex items-center justify-between bg-zinc-50 rounded-xl px-4 py-3 mb-6">
+            <span className="text-sm text-zinc-500">Total</span>
+            <span className="text-xl font-bold text-violet-700">${Number(album.price).toFixed(2)}</span>
+          </div>
+
+          <p className="text-xs text-zinc-400 text-center mb-4">
+            By confirming you agree to complete this purchase. This action cannot be undone.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isPurchasing}
+              className="flex-1 px-4 py-2.5 text-sm border border-zinc-300 rounded-xl hover:bg-zinc-50 disabled:opacity-40 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isPurchasing}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl transition-colors font-medium"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {isPurchasing ? 'Processing…' : 'Confirm Purchase'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

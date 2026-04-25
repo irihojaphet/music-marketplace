@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 import { getArtists, createArtist, updateArtist, deleteArtist } from '../../api/artists.js'
+import { useToast } from '../../app/ToastContext.jsx'
 import { PageSpinner } from '../../components/Spinner.jsx'
 import EmptyState from '../../components/EmptyState.jsx'
 import ErrorMessage from '../../components/ErrorMessage.jsx'
 
 export default function AdminArtists() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(null) // null | { mode: 'create' | 'edit', artist?: {} }
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -24,6 +26,7 @@ export default function AdminArtists() {
       queryClient.invalidateQueries({ queryKey: ['artists'] })
       setModal(null)
       setFormError(null)
+      toast('Artist created successfully')
     },
     onError: (e) => setFormError(e),
   })
@@ -34,6 +37,7 @@ export default function AdminArtists() {
       queryClient.invalidateQueries({ queryKey: ['artists'] })
       setModal(null)
       setFormError(null)
+      toast('Artist updated successfully')
     },
     onError: (e) => setFormError(e),
   })
@@ -43,6 +47,7 @@ export default function AdminArtists() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['artists'] })
       setDeleteTarget(null)
+      toast('Artist deleted', 'info')
     },
   })
 
@@ -174,26 +179,46 @@ function ArtistModal({ mode, artist, error, saving, onSave, onClose }) {
     onSave(data)
   }
 
-  const f = (key, label, type = 'text', required = true) => (
-    <div>
-      <label className="block text-sm font-medium text-zinc-700 mb-1">{label}</label>
-      <input
-        type={type}
-        required={required}
-        value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-  )
+  const inputClass = 'w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
 
   return (
     <Modal title={mode === 'create' ? 'Add Artist' : 'Edit Artist'} onClose={onClose}>
       {error && <ErrorMessage error={error} className="mb-4" />}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {f('performing_name', 'Performing Name')}
-        {f('real_name', 'Real Name')}
-        {f('date_of_birth', 'Date of Birth', 'date')}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Performing Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            required
+            value={form.performing_name}
+            onChange={(e) => setForm({ ...form, performing_name: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Real Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            required
+            value={form.real_name}
+            onChange={(e) => setForm({ ...form, real_name: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Date of Birth <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="date"
+            required
+            value={form.date_of_birth}
+            onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+            className={inputClass}
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-zinc-700 mb-1">Bio (optional)</label>
           <textarea
@@ -241,6 +266,12 @@ function ConfirmModal({ title, message, loading, onConfirm, onClose }) {
 }
 
 function Modal({ title, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">

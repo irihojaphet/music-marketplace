@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
 import { getAlbums, createAlbum, updateAlbum, deleteAlbum } from '../../api/albums.js'
 import { getArtists } from '../../api/artists.js'
+import { useToast } from '../../app/ToastContext.jsx'
 import { PageSpinner } from '../../components/Spinner.jsx'
 import EmptyState from '../../components/EmptyState.jsx'
 import ErrorMessage from '../../components/ErrorMessage.jsx'
@@ -10,6 +11,7 @@ import { RatingDisplay } from '../../components/StarRating.jsx'
 
 export default function AdminAlbums() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -42,6 +44,7 @@ export default function AdminAlbums() {
       queryClient.invalidateQueries({ queryKey: ['albums'] })
       setModal(null)
       setFormError(null)
+      toast('Album added to catalog')
     },
     onError: (e) => setFormError(e),
   })
@@ -52,6 +55,7 @@ export default function AdminAlbums() {
       queryClient.invalidateQueries({ queryKey: ['albums'] })
       setModal(null)
       setFormError(null)
+      toast('Album updated successfully')
     },
     onError: (e) => setFormError(e),
   })
@@ -61,6 +65,7 @@ export default function AdminAlbums() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['albums'] })
       setDeleteTarget(null)
+      toast('Album deleted', 'info')
     },
   })
 
@@ -216,22 +221,28 @@ function AlbumModal({ mode, album, artists, error, saving, onSave, onClose }) {
     onSave({ name: form.name, price: form.price, artist_id: Number(form.artist_id) })
   }
 
+  const inputClass = 'w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
+
   return (
     <Modal title={mode === 'create' ? 'Add Album' : 'Edit Album'} onClose={onClose}>
       {error && <ErrorMessage error={error} className="mb-4" />}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">Album Name</label>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Album Name <span className="text-red-500">*</span>
+          </label>
           <input
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className={inputClass}
             placeholder="Album title"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">Price ($)</label>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Price ($) <span className="text-red-500">*</span>
+          </label>
           <input
             required
             type="number"
@@ -239,17 +250,19 @@ function AlbumModal({ mode, album, artists, error, saving, onSave, onClose }) {
             min="0.01"
             value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })}
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className={inputClass}
             placeholder="9.99"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">Artist</label>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">
+            Artist <span className="text-red-500">*</span>
+          </label>
           <select
             required
             value={form.artist_id}
             onChange={(e) => setForm({ ...form, artist_id: e.target.value })}
-            className="w-full border border-zinc-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+            className={`${inputClass} bg-white`}
           >
             <option value="">Select an artist…</option>
             {artists.map((a) => (
@@ -295,6 +308,12 @@ function ConfirmModal({ title, message, loading, onConfirm, onClose }) {
 }
 
 function Modal({ title, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
