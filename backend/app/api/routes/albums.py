@@ -19,8 +19,10 @@ def list_albums_route(
     search: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("newest"),
+    min_rating: float | None = Query(None, ge=1, le=5),
 ):
-    return list_albums(db, search=search, skip=skip, limit=limit)
+    return list_albums(db, search=search, skip=skip, limit=limit, sort_by=sort_by, min_rating=min_rating)
 
 
 @router.get("/{album_id}", response_model=AlbumOut)

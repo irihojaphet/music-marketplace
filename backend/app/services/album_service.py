@@ -36,6 +36,8 @@ def list_albums(
     search: str | None = None,
     skip: int = 0,
     limit: int = 20,
+    sort_by: str = "newest",
+    min_rating: float | None = None,
 ) -> AlbumListResponse:
     rating_sq = _rating_subquery(db)
 
@@ -51,8 +53,23 @@ def list_albums(
             Album.name.ilike(pattern) | Artist.performing_name.ilike(pattern)
         )
 
+    if min_rating is not None:
+        query = query.filter(rating_sq.c.avg_rating.is_not(None), rating_sq.c.avg_rating >= min_rating)
+
+    order_map = {
+        "newest": Album.created_at.desc(),
+        "oldest": Album.created_at.asc(),
+        "name_asc": Album.name.asc(),
+        "name_desc": Album.name.desc(),
+        "price_asc": Album.price.asc(),
+        "price_desc": Album.price.desc(),
+        "rating_desc": rating_sq.c.avg_rating.desc().nullslast(),
+        "rating_asc": rating_sq.c.avg_rating.asc().nullslast(),
+    }
+    order_by = order_map.get(sort_by, order_map["newest"])
+
     total = query.count()
-    rows = query.order_by(Album.created_at.desc()).offset(skip).limit(limit).all()
+    rows = query.order_by(order_by, Album.id.desc()).offset(skip).limit(limit).all()
 
     items = [
         AlbumListItem(

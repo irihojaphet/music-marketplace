@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Music, Library, LogOut, LogIn, ShieldCheck, UserPlus } from 'lucide-react'
+import { Music, Library, LogOut, LogIn, UserPlus } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 
 export default function Navbar() {

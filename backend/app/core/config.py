@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/music_marketplace"
-    frontend_url: str = "http://localhost:5173"
+    frontend_urls: str = "http://localhost:5173,http://localhost:3000"
 
 
 @lru_cache

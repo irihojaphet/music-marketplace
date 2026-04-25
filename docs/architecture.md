@@ -59,7 +59,7 @@ Page → React Query hook → axios API call → FastAPI
 
 **API layer** (`src/api/`) — Pure async functions that call axios. One file per resource. No business logic here.
 
-**React Query** — All server state. `queryKey` conventions: `['albums', search, skip]`, `['library']`, `['artists', search]`. Mutations call `invalidateQueries` on success to trigger refetch.
+**React Query** — All server state. `queryKey` conventions: `['albums', search, skip, sort, minRating]`, `['library']`, `['artists', search]`. Mutations call `invalidateQueries` on success to trigger refetch.
 
 **Pages** — Route-level components. Compose hooks and shared components. No prop drilling — auth state comes from `useAuth()`, server state from React Query hooks.
 
@@ -68,6 +68,13 @@ Page → React Query hook → axios API call → FastAPI
 `ProtectedRoute` — redirects unauthenticated users to `/login` with `state.from` for post-login redirect.
 
 `AdminRoute` — additionally checks `user.is_admin`, redirects non-admins to `/`.
+
+### Marketplace UX
+
+The main marketplace now exposes two catalog views:
+
+- `Albums` — searchable, paginated, sortable, and filterable catalog with purchase actions
+- `Artists` — searchable artist discovery view so the reviewer can assess both sides of the domain from the main product UI
 
 ## Key design decisions
 
@@ -86,7 +93,7 @@ Page → React Query hook → axios API call → FastAPI
 For a live deployment:
 1. Set `SECRET_KEY` to a cryptographically random value
 2. Set `DATABASE_URL` to the production Postgres URL
-3. Set `FRONTEND_URL` to the deployed frontend domain (CORS)
+3. Set `FRONTEND_URLS` to a comma-separated list of allowed frontend domains (CORS)
 4. Build frontend with `VITE_API_BASE_URL` pointing to the API
 5. Run `alembic upgrade head` as a pre-deploy step
 6. The backend Dockerfile exposes port 8000; use a reverse proxy (nginx, Caddy) in front

@@ -14,7 +14,47 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d music_marketplace"]
       interval: 5s
       timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    container_name: music_marketplace_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: replace_this_with_a_long_random_secret
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/music_marketplace
+      FRONTEND_URLS: http://localhost:5173,http://frontend:80
+    command: >
+      sh -c "python -m alembic upgrade head &&
+      python -m app.db.seed &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
       retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    container_name: music_marketplace_frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
 
 volumes:
   postgres_data:

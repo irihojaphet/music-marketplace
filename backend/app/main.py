@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import albums, artists, auth, library, purchases, ratings
 from app.core.config import settings
 
+
+allowed_origins = [origin.strip() for origin in settings.frontend_urls.split(",") if origin.strip()]
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
@@ -14,7 +17,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

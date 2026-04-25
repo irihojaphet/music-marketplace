@@ -1,160 +1,227 @@
 # Music Marketplace
 
-A full-stack music marketplace where users can browse, purchase, and rate albums. Built as a portfolio-grade project demonstrating clean architecture, business rule enforcement, and modern tooling.
+A production-minded full-stack music marketplace for discovering, purchasing, and rating albums.
+
+Admins manage artists and albums. Listeners browse the catalog, purchase albums, rate owned releases, and build a personal library.
 
 ## Stack
 
 | Layer | Technology |
-|-------|-----------|
-| API | FastAPI + Pydantic v2 |
-| ORM | SQLAlchemy 2.0 (sync) |
-| Migrations | Alembic |
+| --- | --- |
+| Frontend | React 19, Vite 8, React Router 7 |
+| Server state | TanStack React Query 5 |
+| Backend | FastAPI, Pydantic v2 |
+| ORM | SQLAlchemy 2 |
 | Database | PostgreSQL 16 |
-| Auth | JWT (python-jose) + bcrypt |
-| Frontend | React 19 + Vite 8 |
-| Data fetching | TanStack React Query 5 |
-| Styling | Tailwind CSS 4 |
-| HTTP client | Axios |
-| Infra | Docker Compose |
+| Migrations | Alembic |
+| Auth | JWT + bcrypt |
+| Local infra | Docker Compose |
+| Deployment | Render Blueprint (`render.yaml`) |
+
+## What This Submission Covers
+
+### Core requirements
+
+- REST API for auth, artists, albums, purchases, ratings, and user library
+- Backend-enforced authorization and business rules
+- React marketplace UI for listeners and administrators
+- Search across albums/artists and marketplace artist discovery
+- Personal library with purchase and rating flow
+- Admin CRUD for artists and albums
+- Seed data and registration path
+- Automated backend tests
+
+### Bonus points included
+
+- PostgreSQL in Docker
+- Single `docker compose up --build` flow for frontend, backend, and database
+- Pagination and sorting/filtering on the album marketplace
+- Loading, empty, error, and confirmation states throughout the UI
+- Render deployment blueprint and production deployment notes
 
 ## Quick Start
 
-### Prerequisites
-
-- Docker Desktop running
-- Python 3.11+ with a virtual environment (`backend/.venv`)
-- Node.js 18+
-
-### 1. Start the database
+### Option 1: Run the full stack with Docker
 
 ```bash
-docker compose up -d
+docker compose up --build
 ```
 
-### 2. Run backend
+Services:
+
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- Swagger docs: `http://localhost:8000/docs`
+- Postgres: `localhost:5433`
+
+The backend container runs migrations and seeds demo data automatically on startup.
+
+### Option 2: Run services manually
+
+#### Backend
 
 ```bash
 cd backend
-
-# Copy env (already done if repo was cloned fresh)
-cp .env.example .env
-
-# Apply migrations
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
 python -m alembic upgrade head
-
-# Seed demo data
 python -m app.db.seed
-
-# Start API
 uvicorn app.main:app --reload --port 8000
 ```
 
-API docs: http://localhost:8000/docs
-
-### 3. Run frontend
+#### Frontend
 
 ```bash
 cd frontend
-cp .env.example .env
 npm install
+copy .env.example .env
 npm run dev
 ```
 
-App: http://localhost:5173
+## Demo Credentials
 
-## Features
+Seeded users:
 
-**Guests**
-- Browse and search the album catalog
-- View artist and album details with community ratings
+- Admin: `admin@musicmarket.com` / `admin123`
+- User: `alice@example.com` / `password123`
+- User: `bob@example.com` / `password123`
 
-**Authenticated users**
+You can also register a fresh account from the UI.
+
+## Feature Walkthrough
+
+### Guest
+
+- Browse the marketplace
+- Search albums and artists
+- View artist metadata, pricing, and community ratings
+
+### Authenticated user
+
 - Register and log in
-- Purchase albums
-- Rate owned albums (1–5 stars)
-- View personal library with rating history
+- Purchase an album once
+- View purchased albums in a personal library
+- Rate owned albums from 1 to 5 stars
+- Update a previous rating
 
-**Admins**
-- Create, edit, and delete artists
-- Create, edit, and delete albums
+### Admin
+
+- Create, edit, search, and delete artists
+- Create, edit, search, and delete albums
 
 ## API Overview
 
-```
+```text
 GET  /health
+
 POST /auth/register
 POST /auth/login
 GET  /auth/me
 
 GET  /artists
-POST /artists            (admin)
 GET  /artists/{id}
+POST /artists            (admin)
 PATCH /artists/{id}      (admin)
 DELETE /artists/{id}     (admin)
 
 GET  /albums
-POST /albums             (admin)
 GET  /albums/{id}
+POST /albums             (admin)
 PATCH /albums/{id}       (admin)
 DELETE /albums/{id}      (admin)
 
-POST /albums/{id}/purchase
-POST /albums/{id}/rating
+POST  /albums/{id}/purchase
+POST  /albums/{id}/rating
 PATCH /albums/{id}/rating
 
-GET  /me/library
+GET /me/library
 ```
 
-## Running Tests
+Album listing supports:
 
-```bash
-cd backend
-python -m pytest tests/ -v
-```
-
-Tests use an in-memory SQLite database — no running Postgres required.
-
-## Project Structure
-
-```
-music-marketplace/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── deps.py          # Auth dependencies, type aliases
-│   │   │   └── routes/          # Thin route handlers
-│   │   ├── core/
-│   │   │   ├── config.py        # Pydantic Settings
-│   │   │   └── security.py      # JWT + password hashing
-│   │   ├── db/
-│   │   │   ├── base.py          # SQLAlchemy Base
-│   │   │   ├── models.py        # ORM models
-│   │   │   ├── session.py       # Engine + SessionLocal
-│   │   │   └── seed.py          # Demo data seed script
-│   │   ├── schemas/             # Pydantic request/response schemas
-│   │   ├── services/            # Business logic
-│   │   └── main.py              # FastAPI app + CORS
-│   ├── alembic/                 # Migrations
-│   ├── tests/                   # Pytest test suite
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── api/                 # Axios API functions
-│       ├── app/                 # AuthContext
-│       ├── components/          # Shared UI components
-│       ├── hooks/               # Custom hooks
-│       └── pages/               # Route-level pages
-├── docs/
-│   └── architecture.md
-└── docker-compose.yml
-```
+- `search`
+- `skip`
+- `limit`
+- `sort_by`
+- `min_rating`
 
 ## Business Rules
 
-Enforced at the service layer and verified by tests:
+The backend enforces these rules in the service layer and validates them with automated tests:
 
-- Users cannot purchase the same album twice
+- Each album belongs to exactly one artist
+- Users cannot purchase the same album more than once
 - Users can only rate albums they have purchased
-- One rating per user per album (PATCH to update)
-- Album rating is the SQL-computed average of all user ratings
+- One rating per user per album
+- Users can update an existing rating
+- Album rating is calculated as the average of submitted user ratings
 - Artist and album management is admin-only
+
+## Testing
+
+Run backend tests:
+
+```bash
+cd backend
+.venv\Scripts\python -m pytest tests -q
+```
+
+The suite uses in-memory SQLite for fast repeatable tests and currently covers:
+
+- auth registration and login
+- admin authorization
+- purchase rules
+- rating rules
+- library behavior
+
+## Architecture and Tradeoffs
+
+High-level notes are in [docs/architecture.md](/c:/music-marketplace/docs/architecture.md:1).
+
+Key decisions:
+
+- FastAPI route handlers stay thin; service modules own business logic
+- SQLAlchemy models encode the relational structure and uniqueness constraints
+- Ratings are computed from live SQL aggregates instead of denormalized counters
+- React Query handles server state; AuthContext handles local auth state
+- PostgreSQL is used for the main app, while SQLite keeps tests fast and isolated
+
+## Render Deployment
+
+This repo includes a Render Blueprint at `render.yaml`.
+
+Relevant Render docs used for the setup:
+
+- FastAPI web services: https://render.com/docs/deploy-fastapi
+- Static sites: https://render.com/docs/static-sites
+- Render Postgres and internal connection URLs: https://render.com/docs/databases
+- Blueprint spec: https://render.com/docs/blueprint-spec
+
+Deployment steps are documented in [docs/render-deployment.md](/c:/music-marketplace/docs/render-deployment.md:1).
+
+## Complete / Partial / Omitted
+
+### Complete
+
+- Core marketplace flows
+- Admin management flows
+- Backend rule enforcement
+- Automated tests for key rules and endpoints
+- One-command local stack
+- Render deployment configuration
+
+### Partial
+
+- No frontend test suite yet; quality is currently enforced through backend tests plus manual UI verification
+
+### Intentionally omitted
+
+- Payment processing
+- shopping cart / checkout
+- user management beyond auth
+- refresh tokens
+- email verification / password reset
+
+Those were intentionally left out to keep the challenge focused on the required product scope and to finish the core flows to a higher standard.

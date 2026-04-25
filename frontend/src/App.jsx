@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth.js'
 import Layout from './components/Layout.jsx'
 import Marketplace from './pages/Marketplace.jsx'
@@ -8,25 +8,20 @@ import Library from './pages/Library.jsx'
 import AdminArtists from './pages/admin/Artists.jsx'
 import AdminAlbums from './pages/admin/Albums.jsx'
 
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
-  return children
-}
-
 function UserOnlyRoute({ children }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (user.is_admin) return <Navigate to="/" replace />
   return children
 }
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (!user.is_admin) return <Navigate to="/" replace />
   return children
 }

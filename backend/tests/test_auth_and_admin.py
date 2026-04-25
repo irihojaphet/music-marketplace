@@ -6,7 +6,7 @@ Uses TestClient with dependency-overridden SQLite database.
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import Album, Artist, User
+from app.db.models import Album, Artist, Rating, User
 from tests.conftest import get_token
 
 
@@ -117,3 +117,35 @@ class TestAdminAuthorization:
         resp = client.get("/albums")
         assert resp.status_code == 200
         assert "items" in resp.json()
+
+
+class TestAlbumListing:
+    def test_album_listing_supports_sorting_and_rating_filter(
+        self, client: TestClient, db: Session, artist: Artist
+    ):
+        low = Album(name="Low Rated", price="8.99", artist_id=artist.id)
+        high = Album(name="High Rated", price="15.99", artist_id=artist.id)
+        unrated = Album(name="Unrated", price="10.99", artist_id=artist.id)
+        db.add_all([low, high, unrated])
+        db.flush()
+
+        user1 = User(email="one@test.com", username="one", hashed_password="x")
+        user2 = User(email="two@test.com", username="two", hashed_password="x")
+        db.add_all([user1, user2])
+        db.flush()
+
+        db.add_all(
+            [
+                Rating(user_id=user1.id, album_id=low.id, score=2),
+                Rating(user_id=user1.id, album_id=high.id, score=5),
+                Rating(user_id=user2.id, album_id=high.id, score=4),
+            ]
+        )
+        db.commit()
+
+        resp = client.get("/albums", params={"sort_by": "rating_desc", "min_rating": 4})
+        assert resp.status_code == 200
+
+        data = resp.json()
+        assert data["items"][0]["name"] == "High Rated"
+        assert all(item["rating"] is None or item["rating"] >= 4 for item in data["items"])

@@ -1,7 +1,7 @@
 import api from './client.js'
 
-export const getAlbums = ({ search, skip = 0, limit = 20 } = {}) =>
-  api.get('/albums', { params: { search, skip, limit } }).then((r) => r.data)
+export const getAlbums = ({ search, skip = 0, limit = 20, sortBy, minRating } = {}) =>
+  api.get('/albums', { params: { search, skip, limit, sort_by: sortBy, min_rating: minRating } }).then((r) => r.data)
 
 export const getAlbum = (id) => api.get(`/albums/${id}`).then((r) => r.data)
 

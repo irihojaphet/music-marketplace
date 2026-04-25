@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, useCallback } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { login as apiLogin, register as apiRegister } from '../api/auth.js'
 
@@ -15,7 +16,7 @@ export function AuthProvider({ children }) {
       return null
     }
   })
-  const [loading, setLoading] = useState(false)
+  const loading = false
 
   const persistAuth = useCallback((token, userData) => {
     localStorage.setItem('token', token)
