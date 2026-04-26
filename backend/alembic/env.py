@@ -10,6 +10,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Import Base and all models so autogenerate can detect them
+from app.core.config import normalize_database_url
 from app.db.base import Base
 import app.db.models  # noqa: F401
 
@@ -23,7 +24,7 @@ target_metadata = Base.metadata
 # Allow DATABASE_URL env var to override alembic.ini
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+    config.set_main_option("sqlalchemy.url", normalize_database_url(db_url))
 
 
 def run_migrations_offline() -> None:
