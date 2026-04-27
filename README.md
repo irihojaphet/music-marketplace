@@ -4,6 +4,10 @@ A full-stack album marketplace where listeners discover artists, buy albums, and
 
 The project is built as a practical hiring exercise submission: small enough to review quickly, but complete enough to show backend judgment, relational modeling, API design, and a usable React product flow.
 
+## Live Demo
+
+Try the deployed application: https://music-marketplace-web.onrender.com
+
 ## Product Experience
 
 - Guests can browse albums and artists, search the catalog, sort by price or rating, and filter highly rated albums.
