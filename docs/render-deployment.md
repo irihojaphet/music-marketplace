@@ -22,8 +22,8 @@ Official references used:
 - Runtime: `Python`
 - Root directory: `backend`
 - Build command: `pip install -r requirements.txt`
-- Pre-deploy command: `python -m alembic upgrade head`
-- Start command: `python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Start command: `python -m alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Python version: `3.12.10`
 
 ### Frontend
 
@@ -60,6 +60,8 @@ Official references used:
   - Use a comma-separated list.
   - Example:
     `https://music-marketplace-web.onrender.com,https://your-custom-domain.com`
+- `PYTHON_VERSION`
+  - Set by `render.yaml` to `3.12.10` so Render matches the Docker development runtime.
 
 ### Frontend
 
@@ -85,6 +87,7 @@ Official references used:
 ## Practical Notes
 
 - Render web services must bind `0.0.0.0` and use `$PORT`.
+- Render free-tier web services do not support a separate pre-deploy command, so migrations run at the start of the backend command.
 - Render Postgres exposes both internal and external URLs; the backend should use the internal URL when running in the same Render region.
 - Static sites are served over Render's CDN and should use a rewrite rule for client-side React routing.
 - `app.db.seed` is idempotent in this project. It exits without changing data if users already exist.

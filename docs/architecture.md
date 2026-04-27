@@ -1,99 +1,90 @@
 # Architecture
 
-## Overview
-
-Music Marketplace is a clean monolith. The backend is the authoritative source of all business logic. The frontend is a thin client that consumes the REST API.
+Music Marketplace is a compact full-stack application with a deliberately simple shape: FastAPI owns the business rules, PostgreSQL owns the relational constraints, and React acts as a focused client for marketplace, library, and admin workflows.
 
 ## Backend
 
-### Layer structure
+The backend is organized around thin routes and service-layer behavior:
 
+```text
+routes -> services -> SQLAlchemy models
+          schemas validate input/output
 ```
-routes → services → models/db
-           ↑
-        schemas (in/out)
-```
 
-**Routes** (`app/api/routes/`) — FastAPI route handlers. Kept thin: parse request, call service, return response. Authorization via `Depends(require_admin)` or `Depends(get_current_user)`.
+- `app/api/routes/` contains FastAPI route handlers, request parsing, and dependency wiring.
+- `app/services/` owns business rules such as purchase uniqueness and rating eligibility.
+- `app/db/models.py` defines the relational model with SQLAlchemy 2.0 typed mappings.
+- `app/schemas/` contains Pydantic request and response models.
+- `app/api/deps.py` centralizes database sessions, current-user lookup, and admin authorization.
 
-**Services** (`app/services/`) — All business logic lives here. Services receive a `Session` and domain objects, enforce rules, and raise `HTTPException` when violated.
+JWT access tokens are signed with HS256. Passwords are hashed with `bcrypt` directly. The app intentionally skips refresh tokens for this demo, using a short-lived access token instead.
 
-**Models** (`app/db/models.py`) — SQLAlchemy 2.0 ORM models with `Mapped` type annotations. Declarative Base. All constraints (`UniqueConstraint`) defined at the model level.
+## Data Model
 
-**Schemas** (`app/schemas/`) — Pydantic v2 request/response models. Input schemas validate and sanitize. Output schemas control what gets serialized.
+Core tables:
 
-**Dependencies** (`app/api/deps.py`) — Typed aliases `CurrentUser`, `AdminUser`, `DbSession` for DI. `require_admin` chains off `get_current_user` and raises 403.
+- `users`
+- `artists`
+- `albums`
+- `purchases`
+- `ratings`
 
-### Auth
+Important constraints:
 
-JWT HS256 tokens. `python-jose` for encoding/decoding. `bcrypt` for password hashing (used directly, not through passlib, to avoid the bcrypt 4+ compatibility issue with passlib 1.7.x).
+- `purchases` has a unique `(user_id, album_id)` constraint.
+- `ratings` has a unique `(user_id, album_id)` constraint.
+- albums belong to exactly one artist.
+- artist deletion cascades through albums, purchases, and ratings.
 
-Token stored in `Authorization: Bearer <token>` header. No refresh tokens — 60-minute expiry is fine for a demo.
-
-### Database
-
-PostgreSQL 16. Sync SQLAlchemy. Single `SessionLocal` created per request via FastAPI dependency injection, closed in `finally` block.
-
-Schema enforces:
-- `UNIQUE(user_id, album_id)` on `purchases`
-- `UNIQUE(user_id, album_id)` on `ratings`
-- `ON DELETE CASCADE` from artist → albums → purchases/ratings
-
-Album `rating` is computed at query time via `AVG()` subquery. Not stored as a denormalized column — avoids cache invalidation complexity for a demo.
-
-### Migrations
-
-Alembic with autogenerate. `alembic/env.py` loads `DATABASE_URL` from `.env` via python-dotenv, then passes it to the engine. Run `alembic upgrade head` before `app.db.seed` on fresh setup.
+Album rating is computed from live `AVG()` queries over rating rows. This avoids stale denormalized values and keeps rating updates straightforward.
 
 ## Frontend
 
-### Data flow
+React Query owns server state. The frontend API layer is split by resource under `src/api/`, while route-level pages compose queries, mutations, auth state, and shared UI components.
 
+Main flows:
+
+- marketplace browsing, search, sorting, filters, and purchases
+- personal library with rating controls
+- admin artist management
+- admin album management
+
+`AuthContext` stores the current user and access token in local storage. Protected routes redirect guests to login, and admin routes additionally check `user.is_admin`.
+
+## Testing
+
+Backend tests run against in-memory SQLite with foreign key enforcement enabled. This keeps the suite fast while still exercising service rules and API authorization paths.
+
+The test suite covers:
+
+- registration and login
+- admin-only catalog writes
+- duplicate purchase prevention
+- rating only after purchase
+- one rating per user per album
+- rating updates
+- user library isolation
+- album sorting and rating filters
+
+## Deployment
+
+The project includes a Render Blueprint that provisions:
+
+- a Python FastAPI web service
+- a static React site
+- a managed PostgreSQL database
+
+Render free-tier services do not support separate pre-deploy commands, so the backend start command runs migrations, seeds demo data, then starts Uvicorn:
+
+```bash
+python -m alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
-Page → React Query hook → axios API call → FastAPI
-                ↓
-         cache / optimistic update → re-render
-```
 
-**AuthContext** — Stores `user` (JSON-parsed from localStorage) and `token`. Provides `login`, `register`, `logout`. On logout, calls `queryClient.clear()` to evict all cached queries.
+Render database URLs are normalized to use SQLAlchemy's `postgresql+psycopg` driver because the project depends on modern `psycopg`, not `psycopg2`.
 
-**API layer** (`src/api/`) — Pure async functions that call axios. One file per resource. No business logic here.
+## Tradeoffs
 
-**React Query** — All server state. `queryKey` conventions: `['albums', search, skip, sort, minRating]`, `['library']`, `['artists', search]`. Mutations call `invalidateQueries` on success to trigger refetch.
-
-**Pages** — Route-level components. Compose hooks and shared components. No prop drilling — auth state comes from `useAuth()`, server state from React Query hooks.
-
-### Route guards
-
-`ProtectedRoute` — redirects unauthenticated users to `/login` with `state.from` for post-login redirect.
-
-`AdminRoute` — additionally checks `user.is_admin`, redirects non-admins to `/`.
-
-### Marketplace UX
-
-The main marketplace now exposes two catalog views:
-
-- `Albums` — searchable, paginated, sortable, and filterable catalog with purchase actions
-- `Artists` — searchable artist discovery view so the reviewer can assess both sides of the domain from the main product UI
-
-## Key design decisions
-
-**Why sync SQLAlchemy?** — Simpler to reason about. FastAPI runs sync route handlers in a threadpool automatically. No `async with session` complexity.
-
-**Why compute rating in SQL?** — The `AVG()` subquery approach avoids stale data and doesn't require a trigger or application-level update on every rating change. For the query volume of a demo app, the overhead is negligible.
-
-**Why bcrypt directly (not passlib)?** — passlib 1.7.4 accesses `bcrypt.__about__.__version__` which was removed in bcrypt 4.0. Rather than pin bcrypt or monkey-patch passlib, we call bcrypt directly. The API is minimal and stable.
-
-**Why no Redux?** — React Query handles all server state. `AuthContext` handles the one piece of client state (current user). Redux would be unnecessary complexity.
-
-**Why SQLite for tests?** — Avoids requiring a running Postgres for `pytest`. The business rules under test don't use Postgres-specific SQL. `StaticPool` ensures all connections share one in-memory DB. Foreign key enforcement is enabled via `PRAGMA foreign_keys=ON`.
-
-## Deployment notes
-
-For a live deployment:
-1. Set `SECRET_KEY` to a cryptographically random value
-2. Set `DATABASE_URL` to the production Postgres URL
-3. Set `FRONTEND_URLS` to a comma-separated list of allowed frontend domains (CORS)
-4. Build frontend with `VITE_API_BASE_URL` pointing to the API
-5. Run `alembic upgrade head` as a pre-deploy step
-6. The backend Dockerfile exposes port 8000; use a reverse proxy (nginx, Caddy) in front
+- Sync SQLAlchemy keeps the backend easy to reason about for a compact CRUD-heavy app.
+- SQLite is used for tests so reviewers can run them without a local database.
+- Payment processing, carts, email flows, and refresh tokens are intentionally out of scope.
+- Frontend tests are not included yet; the current quality bar is backend automated tests plus manual product-flow verification.

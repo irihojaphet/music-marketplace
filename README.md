@@ -1,47 +1,34 @@
 # Music Marketplace
 
-A production-minded full-stack music marketplace for discovering, purchasing, and rating albums.
+A full-stack album marketplace where listeners discover artists, buy albums, and rate the music they own. Admins get a focused catalog workspace for managing artists and releases, while guests can browse the marketplace before creating an account.
 
-Admins manage artists and albums. Listeners browse the catalog, purchase albums, rate owned releases, and build a personal library.
+The project is built as a practical hiring exercise submission: small enough to review quickly, but complete enough to show backend judgment, relational modeling, API design, and a usable React product flow.
 
-## Stack
+## Product Experience
+
+- Guests can browse albums and artists, search the catalog, sort by price or rating, and filter highly rated albums.
+- Listeners can register, purchase albums once, view a personal library, and rate purchased albums.
+- Admins can create, edit, search, and delete artists and albums from dedicated dashboard views.
+- Album ratings are calculated from real user ratings, not stored as stale counters.
+- The UI includes loading, empty, error, confirmation, and success states for the main workflows.
+
+## Tech Stack
 
 | Layer | Technology |
 | --- | --- |
 | Frontend | React 19, Vite 8, React Router 7 |
 | Server state | TanStack React Query 5 |
 | Backend | FastAPI, Pydantic v2 |
-| ORM | SQLAlchemy 2 |
-| Database | PostgreSQL 16 |
+| Data access | SQLAlchemy 2 |
+| Database | PostgreSQL 16 locally and on Render |
 | Migrations | Alembic |
-| Auth | JWT + bcrypt |
+| Auth | JWT access tokens + bcrypt password hashing |
 | Local infra | Docker Compose |
-| Deployment | Render Blueprint (`render.yaml`) |
-
-## What This Submission Covers
-
-### Core requirements
-
-- REST API for auth, artists, albums, purchases, ratings, and user library
-- Backend-enforced authorization and business rules
-- React marketplace UI for listeners and administrators
-- Search across albums/artists and marketplace artist discovery
-- Personal library with purchase and rating flow
-- Admin CRUD for artists and albums
-- Seed data and registration path
-- Automated backend tests
-
-### Bonus points included
-
-- PostgreSQL in Docker
-- Single `docker compose up --build` flow for frontend, backend, and database
-- Pagination and sorting/filtering on the album marketplace
-- Loading, empty, error, and confirmation states throughout the UI
-- Render deployment blueprint and production deployment notes
+| Deployment | Render Blueprint |
 
 ## Quick Start
 
-### Option 1: Run the full stack with Docker
+Run the whole application from the repository root:
 
 ```bash
 docker compose up --build
@@ -51,14 +38,22 @@ Services:
 
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
-- Postgres: `localhost:5433`
+- API docs: `http://localhost:8000/docs`
+- PostgreSQL: `localhost:5433`
 
-The backend container runs migrations and seeds demo data automatically on startup.
+On startup, the backend runs database migrations and seeds demo data automatically.
 
-### Option 2: Run services manually
+## Demo Accounts
 
-#### Backend
+- Admin: `admin@musicmarket.com` / `admin123`
+- Listener: `alice@example.com` / `password123`
+- Listener: `bob@example.com` / `password123`
+
+You can also create a fresh listener account from the registration page.
+
+## Manual Setup
+
+Backend:
 
 ```bash
 cd backend
@@ -71,7 +66,7 @@ python -m app.db.seed
 uvicorn app.main:app --reload --port 8000
 ```
 
-#### Frontend
+Frontend:
 
 ```bash
 cd frontend
@@ -80,38 +75,21 @@ copy .env.example .env
 npm run dev
 ```
 
-## Demo Credentials
+## Key Workflows
 
-Seeded users:
+### Marketplace
 
-- Admin: `admin@musicmarket.com` / `admin123`
-- User: `alice@example.com` / `password123`
-- User: `bob@example.com` / `password123`
+The landing view is the product itself: searchable albums, artist discovery, sorting, rating filters, pagination, purchase actions, and ownership badges. Guests can explore freely and are routed to sign in when they try to purchase.
 
-You can also register a fresh account from the UI.
+### Library
 
-## Feature Walkthrough
-
-### Guest
-
-- Browse the marketplace
-- Search albums and artists
-- View artist metadata, pricing, and community ratings
-
-### Authenticated user
-
-- Register and log in
-- Purchase an album once
-- View purchased albums in a personal library
-- Rate owned albums from 1 to 5 stars
-- Update a previous rating
+Authenticated listeners see purchased albums in their library. Rating controls are shown only for owned albums, and updates refresh both the personal library and marketplace rating averages.
 
 ### Admin
 
-- Create, edit, search, and delete artists
-- Create, edit, search, and delete albums
+Admin users get separate artist and album management screens. The backend enforces admin-only writes, so protected actions are not dependent on frontend routing alone.
 
-## API Overview
+## API Surface
 
 ```text
 GET  /health
@@ -120,17 +98,17 @@ POST /auth/register
 POST /auth/login
 GET  /auth/me
 
-GET  /artists
-GET  /artists/{id}
-POST /artists            (admin)
-PATCH /artists/{id}      (admin)
-DELETE /artists/{id}     (admin)
+GET    /artists
+GET    /artists/{id}
+POST   /artists        admin
+PATCH  /artists/{id}   admin
+DELETE /artists/{id}   admin
 
-GET  /albums
-GET  /albums/{id}
-POST /albums             (admin)
-PATCH /albums/{id}       (admin)
-DELETE /albums/{id}      (admin)
+GET    /albums
+GET    /albums/{id}
+POST   /albums         admin
+PATCH  /albums/{id}    admin
+DELETE /albums/{id}    admin
 
 POST  /albums/{id}/purchase
 POST  /albums/{id}/rating
@@ -139,25 +117,21 @@ PATCH /albums/{id}/rating
 GET /me/library
 ```
 
-Album listing supports:
+Album listing supports `search`, `skip`, `limit`, `sort_by`, and `min_rating`.
 
-- `search`
-- `skip`
-- `limit`
-- `sort_by`
-- `min_rating`
+## Backend Design
 
-## Business Rules
+The backend keeps route handlers thin and moves business behavior into service modules. SQLAlchemy models encode the relational structure and uniqueness constraints:
 
-The backend enforces these rules in the service layer and validates them with automated tests:
+- one album belongs to one artist
+- one purchase per user per album
+- one rating per user per album
+- ratings are allowed only after purchase
+- album averages are computed from rating rows
 
-- Each album belongs to exactly one artist
-- Users cannot purchase the same album more than once
-- Users can only rate albums they have purchased
-- One rating per user per album
-- Users can update an existing rating
-- Album rating is calculated as the average of submitted user ratings
-- Artist and album management is admin-only
+Pydantic schemas validate input and shape API responses. JWT auth is handled through FastAPI dependencies, with admin-only dependencies used on protected catalog mutations.
+
+More detail is available in [docs/architecture.md](docs/architecture.md).
 
 ## Testing
 
@@ -168,60 +142,43 @@ cd backend
 .venv\Scripts\python -m pytest tests -q
 ```
 
-The suite uses in-memory SQLite for fast repeatable tests and currently covers:
+The test suite uses in-memory SQLite for speed and covers:
 
-- auth registration and login
+- registration and login
 - admin authorization
 - purchase rules
 - rating rules
 - library behavior
+- album sorting and rating filters
 
-## Architecture and Tradeoffs
+## Deployment
 
-High-level notes are in [docs/architecture.md](/c:/music-marketplace/docs/architecture.md:1).
+The repository includes a Render Blueprint at [render.yaml](render.yaml). It provisions:
 
-Key decisions:
+- a FastAPI web service
+- a static React site
+- a managed PostgreSQL database
 
-- FastAPI route handlers stay thin; service modules own business logic
-- SQLAlchemy models encode the relational structure and uniqueness constraints
-- Ratings are computed from live SQL aggregates instead of denormalized counters
-- React Query handles server state; AuthContext handles local auth state
-- PostgreSQL is used for the main app, while SQLite keeps tests fast and isolated
+Deployment notes are in [docs/render-deployment.md](docs/render-deployment.md).
 
-## Render Deployment
+## Product Scope
 
-This repo includes a Render Blueprint at `render.yaml`.
+This version intentionally focuses on the core marketplace loop: browse, purchase, own, rate, and administer catalog data.
 
-Relevant Render docs used for the setup:
+Included:
 
-- FastAPI web services: https://render.com/docs/deploy-fastapi
-- Static sites: https://render.com/docs/static-sites
-- Render Postgres and internal connection URLs: https://render.com/docs/databases
-- Blueprint spec: https://render.com/docs/blueprint-spec
-
-Deployment steps are documented in [docs/render-deployment.md](/c:/music-marketplace/docs/render-deployment.md:1).
-
-## Complete / Partial / Omitted
-
-### Complete
-
-- Core marketplace flows
-- Admin management flows
-- Backend rule enforcement
-- Automated tests for key rules and endpoints
-- One-command local stack
+- complete guest, listener, and admin flows
+- PostgreSQL via Docker Compose
 - Render deployment configuration
+- seeded demo users and catalog data
+- backend tests for the highest-risk business rules
 
-### Partial
+Deferred:
 
-- No frontend test suite yet; quality is currently enforced through backend tests plus manual UI verification
-
-### Intentionally omitted
-
-- Payment processing
-- shopping cart / checkout
-- user management beyond auth
+- real payment processing
+- cart and checkout orchestration
 - refresh tokens
-- email verification / password reset
+- password reset and email verification
+- frontend test automation
 
-Those were intentionally left out to keep the challenge focused on the required product scope and to finish the core flows to a higher standard.
+Those omissions keep the project centered on the requested product behavior while leaving clear next steps for production hardening.
